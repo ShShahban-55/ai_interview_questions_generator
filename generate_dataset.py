@@ -37,7 +37,7 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT_FILE = ROOT / "train_samples.jsonl"
 DONE_FILE = ROOT / "runs_done.txt"
 
-# Prompts, schemas, parsers and run_pipeline come from app.py (single source of truth).
+ 
 _src = (ROOT / "app.py").read_text(encoding="utf-8")
 exec(_src.split("# ===== HELPERS START =====")[1].split("# ===== HELPERS END =====")[0], globals())
 
@@ -77,7 +77,7 @@ def collect_samples(cv, job, lang, k, max_topics, llm, retrieve, log):
     cv_words = set(re.findall(r"\w+", cv.lower()))
     good = [tp for tp in ext.topics if grounded(tp.evidence, cv_words)]
     samples, rej = [], Counter()
-    if lang == "en":        # topic extraction does not depend on the language: take it once
+    if lang == "en":         
         if len(good) >= 3:
             sys_, usr_ = log[0][0]
             samples.append({"task": "extract", "system": sys_, "user": usr_,
@@ -165,7 +165,7 @@ def main():
     kept, rejects, t0 = Counter(), Counter(), time.time()
 
     for idx in tqdm(range(args.n_cvs)):
-        rng = random.Random(idx)                 # same k / max_topics for both languages
+        rng = random.Random(idx)                  
         k, max_topics = rng.choice([2, 3, 4]), rng.choice([5, 8, 10])
         row = tech.iloc[idx]
         for lang in ("en", "ar"):
