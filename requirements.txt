@@ -1,4 +1,3 @@
-# Core app
 streamlit
 torch
 transformers
@@ -13,9 +12,9 @@ pydantic>=2
 json-repair
 pypdf
 
-# Dataset generation + QLoRA fine-tuning (GPU)
+ 
 bitsandbytes
 pandas
 tqdm
 
-# Note (Kaggle): if peft raises "incompatible version of torchao", run:  pip uninstall -y torchao
+ 
