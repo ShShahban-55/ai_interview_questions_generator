@@ -106,4 +106,4 @@ Still to do: generate the full dataset (40 CVs), run the final training, and fil
 
 ## Screenshots and demo
 
-_I will add screenshots and the demo video link here._
+(https://drive.google.com/drive/folders/1HtSrr5w4aQsWZf0hOvnAE8PJQBCngF0X?usp=sharing)
