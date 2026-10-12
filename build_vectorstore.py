@@ -23,7 +23,7 @@ def main():
         for i in items
     ]
 
-    # Start clean so re-running does not duplicate documents.
+   
     if Path(PERSIST_DIR).exists():
         shutil.rmtree(PERSIST_DIR)
 
