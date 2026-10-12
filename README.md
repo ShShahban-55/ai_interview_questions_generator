@@ -1,105 +1,110 @@
-# AI Resume-to-Interview Question Generator
+ # AI Resume-to-Interview Question Generator
 
-Upload a CV (or paste its text) and get **interview questions for every skill and project in it**, grouped per topic, ordered Easy → Hard, each with an ideal answer. Works in **Arabic and English**.
+This is my graduation project. You give it a CV (upload a PDF or paste the text) and it writes interview questions for every skill and project it finds in the CV. The questions are grouped by topic, go from easy to hard, and each one comes with an ideal answer. It works in Arabic and English.
 
-The project combines three techniques:
+The project uses the three techniques I was assigned: Output Parser, RAG and Fine-tuning.
 
-| Technique | Role in the project |
-|---|---|
-| **Output Parser** | Forces the LLM output into typed Pydantic schemas (LangChain `PydanticOutputParser`), with repair layers for the messy JSON a 3B model produces |
-| **RAG** | Retrieves reference interview material from a Chroma vector store (multilingual MiniLM embeddings) for each topic |
-| **Fine-tuning (QLoRA)** | Adapts `Qwen2.5-3B-Instruct` so it produces schema-valid JSON, in the requested language, grounded in the CV |
+- **Output Parser**: the model has to answer in JSON, so I use Pydantic schemas with LangChain's `PydanticOutputParser` to check the answer. A 3B model often breaks the JSON, so I added some repair steps on top (more on that below).
+- **RAG**: for each topic the app looks up reference interview questions in a Chroma vector store (multilingual MiniLM embeddings) and gives them to the model as context.
+- **Fine-tuning**: I fine-tuned `Qwen2.5-3B-Instruct` with QLoRA so it gives valid JSON, answers in the language I ask for, and sticks to what is written in the CV.
 
-> Author: _your name_ · Supervisor: _supervisor name_ · University / Course: _fill in_
+Author: _your name_
+Supervisor: _supervisor name_
+University / course: _fill in_
 
 ## How it works
 
+My first version sent the CV to the model in one call and asked for 5 questions. That gave only a few questions and ignored most of the CV, so I changed it to 3 steps:
+
+1. **Extraction.** The model reads the CV (first 4000 characters) and returns the candidate level plus a list of topics. Every topic is a skill or a project and has a short quote from the CV as evidence.
+2. **Retrieval.** For each topic I get 2 reference questions from Chroma. They are only there for inspiration. If the model copies one of them, that question is dropped.
+3. **Generation.** For each topic the model writes k questions (2 to 5, chosen in the sidebar), easy to hard, with ideal answers. Topics are processed in batches and the result is shown grouped by topic.
+
+### Making the parser reliable
+
+The small model makes a lot of small mistakes, for example a misspelled key (`candiate_level`), a level like `Intermediate` that is not in my schema, or JSON that is cut in the middle. So the parsing code does these things:
+
+- repairs broken JSON with `json-repair`
+- fixes misspelled keys with `difflib`
+- maps values to the allowed ones (`Intermediate` -> `Mid`, and Arabic words like `صعب` -> `Hard`)
+- drops questions that are cut off or duplicated
+- if one topic fails, the other topics still work
+
+### Training data
+
+I could not find a public dataset of CV -> interview questions, so I built one. The base model runs the same pipeline as the app on real CVs (Kaggle "Resume Dataset", IT and Engineering categories), once in English and once in Arabic, and I keep only the good outputs:
+
+- the evidence for a topic must really be in the CV (at least 80% of its words)
+- the number of questions must be exactly k
+- the language must match (Arabic ratio check, and no Chinese characters, which sometimes showed up)
+- no question copied from the RAG references
+
+The training scripts read the prompts and schemas directly from `app.py`, so training and the app always use the same prompts.
+
+One thing I want to be clear about: this fine-tuning does not teach the model new knowledge. It only teaches it the output format, the language and to stay close to the CV. The knowledge itself comes from the base model and from RAG.
+
+## Files
+
 ```
-CV text ──► 1. Extraction ──► candidate level + topics (skills / projects, each with CV evidence)
-                │
-                ▼
-        2. RAG retrieval (k=2 reference Q&A per topic, Chroma)
-                │
-                ▼
-        3. Question generation (per topic, batched) ──► Output Parser ──► grouped results
-```
-
-1. **Extraction** reads the whole CV (first 4000 chars) and returns the candidate level and a list of topics, each with a short evidence quote from the CV.
-2. **Retrieval** fetches reference questions for each topic. They are inspiration only: questions copied from them are dropped (`drop_copies`).
-3. **Generation** asks for *k* questions per topic (2–5), Easy → Hard, with ideal answers, in the chosen language.
-
-### Output parser robustness
-Pydantic v2 schemas + `PydanticOutputParser`, plus: `json-repair` for truncated/broken JSON, fuzzy key fixing (`candiate_level` → `candidate_level`), enum normalisation (`Intermediate` → `Mid`, Arabic synonyms), dropping truncated or duplicate questions. One failed topic never kills the others.
-
-### Fine-tuning data
-There is no public CV→questions dataset, so the training set is built by **self-distillation with rejection sampling**: the base model runs the exact app pipeline on real CVs (Kaggle *Resume Dataset*, IT + Engineering categories), in English and Arabic, and only clean outputs are kept:
-- the topic evidence must really appear in the CV (≥80 % of its tokens)
-- exactly *k* questions
-- language matches (Arabic ratio check; no Chinese/Japanese characters)
-- no questions copied from RAG references
-
-Prompts and schemas are read from `app.py`, so training and inference use identical prompts.
-
-**Honest framing:** fine-tuning here teaches *format, discipline and language*, not new knowledge. The knowledge comes from the base model and RAG.
-
-## Repository layout
-
-```
-app.py                      Streamlit app (pipeline, parsers, bilingual UI)
-build_vectorstore.py        Builds the Chroma DB from knowledge/knowledge.json
-knowledge/knowledge.json    19 hand-written reference entries (RAG knowledge base)
-training/generate_dataset.py  Builds train_samples.jsonl from CVs
-training/train_qlora.py       QLoRA training + base-vs-fine-tuned evaluation
-tests/                      GPU-free logic tests (fake LLM)
+app.py                        the Streamlit app (pipeline, parsers, UI)
+build_vectorstore.py          builds the Chroma DB from knowledge/knowledge.json
+knowledge/knowledge.json      19 reference entries I wrote for RAG
+training/generate_dataset.py  makes train_samples.jsonl from the CVs
+training/train_qlora.py       QLoRA training + comparison base vs fine-tuned
+tests/                        tests that run without a GPU (they use a fake LLM)
 requirements.txt
 ```
 
-## Run it
+## How to run
 
-Needs a GPU (developed on a free Kaggle T4). Steps:
+You need a GPU. I used the free T4 on Kaggle.
 
 ```bash
 pip install -r requirements.txt
-python build_vectorstore.py                      # build the RAG index
-python training/generate_dataset.py --n-cvs 40   # ~1.5 h on a T4
-python training/train_qlora.py --epochs 2        # ~30-40 min, writes qlora_adapter/
-streamlit run app.py                             # sidebar: toggle RAG / fine-tuned model
+python build_vectorstore.py
+python training/generate_dataset.py --n-cvs 40
+python training/train_qlora.py --epochs 2
+streamlit run app.py
 ```
 
-On Kaggle, expose the app with a Cloudflare quick tunnel:
-`./cloudflared tunnel --url http://localhost:8501`.
-If peft complains about `torchao`: `pip uninstall -y torchao`.
+Generating the data took around 1.5 hours and the training around 30-40 minutes on the T4. After training, the app finds the `qlora_adapter/` folder and the "Use fine-tuned model" switch in the sidebar becomes available.
 
-Tests (no GPU needed):
+On Kaggle I opened the app with a Cloudflare tunnel: `./cloudflared tunnel --url http://localhost:8501`. If peft gives a `torchao` version error, run `pip uninstall -y torchao`.
+
+To run the tests (no GPU needed):
 
 ```bash
 python tests/test_pipeline.py
 python tests/test_training_data.py
 ```
 
-## Fine-tuning setup
+## Fine-tuning settings
 
-4-bit NF4 QLoRA (double quantisation, fp16 compute), LoRA r=16 / alpha=32 / dropout 0.05 on all attention + MLP projections (~29.9 M trainable params, 0.96 %), LR 2e-4, effective batch 8, 2 epochs, max length 2400, loss only on the answer tokens. Validation uses whole CVs that never appear in training.
+- 4-bit NF4 quantization with double quantization, fp16 compute
+- LoRA r=16, alpha=32, dropout 0.05 on the attention and MLP layers (about 29.9M trainable parameters, 0.96% of the model)
+- learning rate 2e-4, effective batch size 8, 2 epochs, max length 2400
+- the loss is calculated only on the answer tokens, not on the prompt
+- validation uses whole CVs that are not in the training set
 
-## Status and results
+## Current status
 
-- ✅ Full app pipeline, output parser, RAG, bilingual UI, tests
-- ✅ Training pipeline verified end-to-end on a small run (35 samples) — adapter saved and loadable
-- ⏳ Full-scale dataset (40 CVs) and final training run
-- ⏳ Evaluation (fill in after the final run):
+Done: the app pipeline, the output parser, RAG, the Arabic/English UI, the tests, and a small test run of the training (35 samples) that saved a working adapter.
 
-| Metric | Base | + RAG | + RAG + fine-tuning |
+Still to do: generate the full dataset (40 CVs), run the final training, and fill in this table with the real numbers.
+
+| | Base model | + RAG | + RAG + fine-tuning |
 |---|---|---|---|
-| Valid JSON on first try (no repair) | _ | _ | _ |
-| Questions rated relevant to the CV (human, 1–5) | _ | _ | _ |
-| Topics covered per CV | _ | _ | _ |
+| Valid JSON on first try (no repair) | | | |
+| Relevance to the CV (my rating, 1-5) | | | |
+| Topics covered per CV | | | |
 
 ## Limitations
 
-- Training data is self-generated and filtered by rules, so it inherits the base model's weaknesses.
-- The knowledge base has only 19 entries.
-- A 3B model sometimes mixes English technical terms into Arabic text (intended for terms like "Docker") or produces generic questions.
-- The app needs a GPU; the 3B model does not fit Streamlit Community Cloud (~2.7 GB RAM, no GPU). The LoRA adapter is too large for GitHub and should be hosted on the Hugging Face Hub.
+- The training data is generated by the base model itself and filtered with simple rules, so it keeps some of the base model's weaknesses.
+- The knowledge base is small (19 entries).
+- The 3B model sometimes writes generic questions, or mixes English words into Arabic text.
+- The app needs a GPU. The 3B model does not fit on Streamlit Community Cloud (about 2.7 GB RAM and no GPU), so I run the demo on Kaggle. The adapter is too big for GitHub, so it will be on the Hugging Face Hub instead.
 
-## Screenshots
-_Add screenshots / demo video link in `docs/`._
+## Screenshots and demo
+
+_I will add screenshots and the demo video link here._
