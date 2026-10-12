@@ -33,7 +33,7 @@ def make_fake(lang):
                     {"name": "Payment API", "type": "project", "evidence": "Payment API with JWT authentication"},
                     {"name": "Docker", "type": "skill", "evidence": "deployed with Docker"},
                     {"name": "Kubernetes", "type": "skill",
-                     "evidence": "managed 40 kubernetes clusters in production"}]}))   # not in the CV
+                     "evidence": "managed 40 kubernetes clusters in production"}]}))    
             elif "Topic: Django" in user:
                 if lang == "en":
                     outs.append('{"questions":[{"question":"How did you use the ORM?","difficulty":"Easy","ideal_answer":"Querysets."},'
@@ -43,11 +43,11 @@ def make_fake(lang):
                     outs.append('{"questions":[{"question":"كيف استخدمت Django ORM في مشروعك؟","difficulty":"Easy","ideal_answer":"باستخدام النماذج والاستعلامات."},'
                                 '{"question":"كيف تتجنب مشكلة N+1 في Django؟","difficulty":"Medium","ideal_answer":"استخدم select_related لتقليل الاستعلامات."},'
                                 '{"question":"كيف وسّعت نطاق التطبيق؟","difficulty":"Hard","ideal_answer":"باستخدام التخزين المؤقت ونسخ القراءة."}]}')
-            elif "Topic: Payment API" in user:     # contains a CJK character -> must be rejected
+            elif "Topic: Payment API" in user:     
                 outs.append('{"questions":[{"question":"JWT design?","difficulty":"Easy","ideal_answer":"ت冻结 tokens"},'
                             '{"question":"Rate limiting?","difficulty":"Hard","ideal_answer":"Counters."},'
                             '{"question":"x?","difficulty":"Medium","ideal_answer":"y"}]}')
-            else:                                  # Docker: 1 question instead of 3 -> must be rejected
+            else:                                 
                 outs.append('{"questions":[{"question":"Why Docker?","difficulty":"Easy","ideal_answer":"Builds."}]}')
         if on_batch:
             on_batch(len(pairs), len(pairs))
@@ -71,13 +71,13 @@ def test_english_run_keeps_only_clean_samples():
     samples, rej = run("en")
     assert [s["task"] for s in samples] == ["extract", "topic"]
     topics = [t["name"] for t in json.loads(samples[0]["target"])["topics"]]
-    assert "Kubernetes" not in topics and topics == ["Django", "Payment API", "Docker"]   # grounded only
+    assert "Kubernetes" not in topics and topics == ["Django", "Payment API", "Docker"]    
     assert rej["ungrounded_topic"] == 1 and rej["language"] == 1 and rej["wrong_question_count"] == 1
 
 
 def test_arabic_run_skips_extraction_and_checks_language():
     samples, rej = run("ar")
-    assert [s["task"] for s in samples] == ["topic"]          # extraction is only taken from the English run
+    assert [s["task"] for s in samples] == ["topic"]         
     assert len(json.loads(samples[0]["target"])["questions"]) == 3
 
 
@@ -87,7 +87,7 @@ def test_training_prompt_is_the_app_prompt():
     assert samples[1]["system"] == gen.SYSTEM_Q and "Number of questions: 3" in samples[1]["user"]
 
 
-class StubTok:                                # tiny fake tokenizer: every word is a token
+class StubTok:                               
     def apply_chat_template(self, msgs, tokenize=False, add_generation_prompt=True):
         return "".join(f"<{m['role']}>{m['content']}" for m in msgs) + "<assistant>"
 
@@ -101,15 +101,15 @@ def test_prompt_tokens_are_masked_and_answer_is_trained():
     n_prompt = sum(1 for x in e["labels"] if x == -100)
     assert 0 < n_prompt < len(e["labels"])
     assert e["labels"][n_prompt:] == e["input_ids"][n_prompt:]
-    assert trn.encode_sample(StubTok(), sample, 3) is None        # too long -> dropped
+    assert trn.encode_sample(StubTok(), sample, 3) is None        
 
 
 def test_strict_validity_metric():
     ok = '{"questions": [{"question": "q", "difficulty": "Easy", "ideal_answer": "a"}]}'
     assert trn.strict_ok(ok, "topic")
-    assert not trn.strict_ok("```json\n" + ok + "\n```", "topic")          # fenced output is not "valid first try"
-    assert not trn.strict_ok('{"questons": []}', "topic")                   # misspelled key
-    assert not trn.strict_ok(ok.replace("Easy", "Moderate"), "topic")       # value outside the schema
+    assert not trn.strict_ok("```json\n" + ok + "\n```", "topic")           
+    assert not trn.strict_ok('{"questons": []}', "topic")                    
+    assert not trn.strict_ok(ok.replace("Easy", "Moderate"), "topic")        
 
 
 def test_validation_split_never_shares_a_cv():
