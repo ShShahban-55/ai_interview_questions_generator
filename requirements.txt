@@ -1,0 +1,21 @@
+# Core app
+streamlit
+torch
+transformers
+accelerate
+peft
+sentence-transformers
+langchain-core
+langchain-community
+langchain-huggingface
+chromadb
+pydantic>=2
+json-repair
+pypdf
+
+# Dataset generation + QLoRA fine-tuning (GPU)
+bitsandbytes
+pandas
+tqdm
+
+# Note (Kaggle): if peft raises "incompatible version of torchao", run:  pip uninstall -y torchao
