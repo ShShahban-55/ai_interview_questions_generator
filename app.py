@@ -15,12 +15,11 @@ from pypdf import PdfReader
 st.set_page_config(page_title="Interview Question Generator", page_icon="🎯", layout="wide")
 
 BASE = "Qwen/Qwen2.5-3B-Instruct"
-ADAPTER = "qlora_adapter"          # بيتعمل في خطوة الـ Fine-tuning
+ADAPTER = "qlora_adapter"           
 BATCH = 4
 CV_CHARS = 4000
 
-# ===== HELPERS START =====
-# ---------- Prompts (نفس الصيغة اللي هنتدرّب عليها) ----------
+ 
 SYSTEM_EXTRACT = (
     "You are an expert technical recruiter. Read the candidate CV and return ONLY valid JSON, no extra text. "
     "Keys: candidate_level (exactly one of: Junior, Mid, Senior) and topics (a list, at most the requested "
@@ -55,7 +54,7 @@ def build_topic_user(cv, job, topic, ctx, k, lang):
             f"Reference material:\n{ref}\n\nNumber of questions: {k}\n\n{lang_line(lang)}")
 
 
-# ---------- Schemas ----------
+ 
 class Topic(BaseModel):
     name: str
     type: Literal["skill", "project"]
@@ -91,7 +90,7 @@ TYPES = {"skill": "skill", "skills": "skill", "tool": "skill", "technology": "sk
          "project": "project", "projects": "project", "مشروع": "project"}
 
 
-# ---------- Parsing helpers ----------
+ 
 def _fix_keys(d, expected):
     """يصلّح أخطاء الإملاء في أسماء الحقول (candiate_level -> candidate_level)."""
     out = {}
@@ -130,7 +129,7 @@ def parse_extraction(raw, max_topics):
 
     lvl_raw = str(obj.get("candidate_level", "")).strip()
     lvl = LEVELS.get(lvl_raw.lower())
-    if lvl is None:                       # الموديل نسي المستوى
+    if lvl is None:                         
         lvl, normalized = "Mid", True
     elif lvl != lvl_raw:
         normalized = True
@@ -235,7 +234,7 @@ def run_pipeline(cv, job, lang, k, max_topics, use_rag, llm, retrieve, on_stage=
     return ext, sections, stats
 
 
-# ---------- UI text ----------
+ 
 TXT = {
     "ar": {
         "title": "مولّد أسئلة المقابلات الذكي",
@@ -346,7 +345,7 @@ def to_text(ext, sections, lang, job):
 def rtl(text, cls="", lang="ar"):
     d = "rtl" if lang == "ar" else "ltr"
     return f'<div dir="{d}" class="{cls}">{html.escape(text)}</div>'
-# ===== HELPERS END =====
+ 
 
 SAMPLE_CV = (
     "Ahmed Ali. Backend Developer with 3 years of experience. Skills: Python, Django, PostgreSQL, Docker, "
@@ -388,7 +387,7 @@ def card():
         return st.container()
 
 
-# ---------- Loaders (بيتحملوا مرة واحدة) ----------
+ 
 @st.cache_resource(show_spinner=False)
 def load_retriever():
     emb = HuggingFaceEmbeddings(
