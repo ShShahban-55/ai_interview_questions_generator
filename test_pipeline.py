@@ -25,23 +25,23 @@ def fake_llm(pairs, max_new_tokens, on_batch=None):
     outs = []
     for i, (system, user) in enumerate(pairs):
         if system == SYSTEM_EXTRACT:
-            # misspelled key, level synonym, duplicated topic, Arabic type, bare string topic
+             
             outs.append('{"candiate_level": "Intermediate", "topics": ['
                         '{"name": "Django", "type": "skill", "evidence": "Django"},'
                         '{"name": "django", "type": "skill"},'
                         '{"name": "Payment API", "type": "مشروع", "evidence": "payment API with JWT"},'
                         '{"name": "Docker", "type": "tool"}, "Redis"]}')
-        elif "Topic: Django" in user:       # a bare list instead of an object
+        elif "Topic: Django" in user:        
             outs.append('[{"question": "How did you use the ORM?", "difficulty": "Easy", "ideal_answer": "a1"},'
                         '{"question": "How to avoid N+1 queries?", "difficulty": "Moderate", "ideal_answer": "a2"},'
                         '{"question": "How did you scale it?", "difficulty": "Hard", "ideal_answer": "a3"}]')
-        elif "Topic: Payment API" in user:  # truncated JSON (last question cut)
+        elif "Topic: Payment API" in user:  
             outs.append('{"questions": [{"question": "JWT design?", "difficulty": "متوسط", "ideal_answer": "j1"},'
                         '{"question": "Rate limiting?", "difficulty": "صعب", "ideal_answer": "j2"},'
                         '{"question": "cut", "diffic')
-        elif "Topic: Docker" in user:       # no JSON at all
+        elif "Topic: Docker" in user:       
             outs.append("sorry, I cannot do that")
-        else:                               # Redis: only copies a RAG reference question
+        else:                               
             outs.append('{"questions": [{"question": "What is RAG and why use it instead of only fine-tuning?", '
                         '"difficulty": "Easy", "ideal_answer": "x"}]}')
         if on_batch:
@@ -53,13 +53,13 @@ def test_full_pipeline_with_messy_outputs():
     stages = []
     ext, sections, stats = run_pipeline(CV, "Backend", "ar", 3, 8, True, fake_llm, lambda q: REF,
                                         lambda *a: stages.append(a))
-    assert ext.candidate_level == "Mid"                                   # "Intermediate" normalised
+    assert ext.candidate_level == "Mid"                                   
     assert [(t.name, t.type) for t in ext.topics] == [
         ("Django", "skill"), ("Payment API", "project"), ("Docker", "skill"), ("Redis", "skill")]
     by_name = {s["topic"].name: s for s in sections}
     assert by_name["Django"]["ok"] and [q.difficulty for q in by_name["Django"]["questions"]] == ["Easy", "Medium", "Hard"]
-    assert by_name["Payment API"]["ok"] and len(by_name["Payment API"]["questions"]) == 2   # truncated one dropped
-    assert not by_name["Docker"]["ok"]                                    # one failure must not kill the rest
+    assert by_name["Payment API"]["ok"] and len(by_name["Payment API"]["questions"]) == 2     
+    assert not by_name["Docker"]["ok"]                                    
     assert not by_name["Redis"]["ok"] and "copied" in by_name["Redis"]["error"]
     assert stats["calls"] == 5 and stats["failed"] == 2
     assert stages[0] == ("extract", 0, 1) and stages[-1][0] == "generate"
