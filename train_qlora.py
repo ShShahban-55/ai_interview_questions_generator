@@ -29,7 +29,7 @@ from pydantic import BaseModel
 
 ROOT = Path(__file__).resolve().parent.parent
 
-# Same prompts / schemas as the app (single source of truth).
+ 
 _src = (ROOT / "app.py").read_text(encoding="utf-8")
 exec(_src.split("# ===== HELPERS START =====")[1].split("# ===== HELPERS END =====")[0], globals())
 
@@ -152,7 +152,7 @@ def main():
     size_mb = sum(os.path.getsize(os.path.join(args.out_dir, f)) for f in os.listdir(args.out_dir)) / 1e6
     print(f"Adapter saved to {args.out_dir}/ ({size_mb:.0f} MB)")
 
-    # ---- base vs fine-tuned: is the RAW output valid JSON matching the schema? ----
+    
     tok.padding_side = "left"
     model.config.use_cache = True
     probe = ([s for s in val_rows if s["task"] == "topic"][:12]
