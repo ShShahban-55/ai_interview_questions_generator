@@ -8,9 +8,8 @@ The project uses the three techniques I was assigned: Output Parser, RAG and Fin
 - **RAG**: for each topic the app looks up reference interview questions in a Chroma vector store (multilingual MiniLM embeddings) and gives them to the model as context.
 - **Fine-tuning**: I fine-tuned `Qwen2.5-3B-Instruct` with QLoRA so it gives valid JSON, answers in the language I ask for, and sticks to what is written in the CV.
 
-Author: _your name_
-Supervisor: _supervisor name_
-University / course: _fill in_
+Author:[Shahd Shabaan Mohamed]
+Supervisor:[Tips_Hindawi]
 
 ## How it works
 
